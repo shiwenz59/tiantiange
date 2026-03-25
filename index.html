@@ -56,14 +56,14 @@
 <!-- Lock Screen -->
 <div id="lockscreen">
   <p><b>Private Page — Enter Passkey</b></p>
-  <input type="password" id="pw" placeholder="passkey..." onkeydown="if(event.key==='Enter')tryLogin()">
+  <input type="password" id="pw" placeholder="nyu unicorn's name..." onkeydown="if(event.key==='Enter')tryLogin()">
   <button onclick="tryLogin()">Enter</button>
   <div class="err" id="err"></div>
 </div>
 
 <!-- Main Page -->
 <div id="main">
-  <h1>Shiwen &amp; Tiantian's Board</h1>
+  <h1>Shiwen &amp; Tiantian's Message Board</h1>
   <p style="font-size:13px; margin:2px 0 6px 0;">Hi Tiantian, you are Shiwen's T.01 friend a.k.a. BFF :)<br></p>
   <img src="tiantian.jpg" alt="tiantian" width="200" style="display:block; margin: 8px 0;">
   <hr>
@@ -108,11 +108,19 @@
   const db = getFirestore(app);
   const messagesCol = collection(db, "messages");
 
-  const PASS = 'danjiaoniu';
 
-  window.tryLogin = function() {
+
+  const PASS_HASH = 'f1e553162dc9ae7bbdae6171672d402c97b204a25a85da7eed3581751b9885a1';
+
+  async function hashInput(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  window.tryLogin = async function() {
     const val = document.getElementById('pw').value;
-    if (val === PASS) {
+    const hashed = await hashInput(val);
+    if (hashed === PASS_HASH) {
       document.getElementById('lockscreen').style.display = 'none';
       document.getElementById('main').style.display = 'block';
       startListening();
