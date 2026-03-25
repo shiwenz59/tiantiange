@@ -3,10 +3,158 @@
 <head>
   <meta charset="UTF-8">
   <title>Shiwen's BFF Tiantian</title>
+  <style>
+    body {
+      font-family: Times New Roman, serif;
+      background: #f5f0e8;
+      margin: 20px;
+      color: #222;
+    }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    hr { border: 1px solid #888; }
+    #lockscreen {
+      border: 1px solid #aaa;
+      padding: 16px;
+      max-width: 320px;
+      background: #fff;
+      margin: 40px auto;
+    }
+    #lockscreen p { margin: 0 0 8px 0; font-size: 14px; }
+    #lockscreen input { border: 1px solid #aaa; padding: 3px; font-size: 14px; width: 180px; }
+    #lockscreen button { margin-left: 6px; font-size: 14px; }
+    #lockscreen .err { color: red; font-size: 13px; }
+    #main { display: none; max-width: 640px; margin: 0 auto; }
+    #compose {
+      border: 1px solid #aaa;
+      padding: 12px;
+      background: #fff;
+      margin-bottom: 18px;
+    }
+    #compose p { margin: 0 0 6px 0; font-size: 14px; }
+    #compose select, #compose textarea {
+      font-family: Times New Roman, serif;
+      font-size: 14px;
+      border: 1px solid #aaa;
+      padding: 3px;
+    }
+    #compose textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+    #compose button { margin-top: 8px; font-size: 14px; }
+    .msg {
+      border: 1px solid #bbb;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      background: #fffff8;
+      font-size: 14px;
+    }
+    .msg .meta { font-size: 12px; color: #666; margin-bottom: 4px; }
+    .msg .text { white-space: pre-wrap; }
+    #status { font-size: 13px; color: #888; font-style: italic; }
+  </style>
 </head>
 <body>
-  <p>Hi Tiantian, you are Shiwen's T.01 friend a.k.a. BFF :)</p>
-  <img src="tiantian.jpg" alt="tiantian" width="200">
-  <p>note: this website should be actively maintained and frequently updated.</p>
+
+<!-- Lock Screen -->
+<div id="lockscreen">
+  <p><b>Private Page — Enter Passkey</b></p>
+  <input type="password" id="pw" placeholder="passkey..." onkeydown="if(event.key==='Enter')tryLogin()">
+  <button onclick="tryLogin()">Enter</button>
+  <div class="err" id="err"></div>
+</div>
+
+<!-- Main Page -->
+<div id="main">
+  <h1>Shiwen &amp; Tiantian's Board</h1>
+  <p style="font-size:13px; margin:2px 0 6px 0;">Hi Tiantian, you are Shiwen's T.01 friend a.k.a. BFF :)<br></p>
+  <img src="tiantian.jpg" alt="tiantian" width="200" style="display:block; margin: 8px 0;">
+  <hr>
+
+  <div id="compose">
+    <p><b>Leave a message:</b></p>
+    <p>
+      From:
+      <select id="author">
+        <option value="Shiwen">Shiwen</option>
+        <option value="Tiantian">Tiantian</option>
+      </select>
+    </p>
+    <p>
+      <textarea id="msgtext" rows="4" cols="50" placeholder="write something here..."></textarea>
+    </p>
+    <button onclick="postMsg()">Post Message</button>
+  </div>
+
+  <hr>
+  <p style="font-size:13px; margin-bottom:8px;"><b>Messages:</b></p>
+  <div id="status">Loading messages...</div>
+  <div id="board"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDotwhmDj_kIX_zXWFtSMAwfYnhNxpgCAo",
+    authDomain: "tiantiange.firebaseapp.com",
+    projectId: "tiantiange",
+    storageBucket: "tiantiange.firebasestorage.app",
+    messagingSenderId: "97390749775",
+    appId: "1:97390749775:web:4c683deaec66a59b7b623a"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const messagesCol = collection(db, "messages");
+
+  const PASS = 'danjiaoniu';
+
+  window.tryLogin = function() {
+    const val = document.getElementById('pw').value;
+    if (val === PASS) {
+      document.getElementById('lockscreen').style.display = 'none';
+      document.getElementById('main').style.display = 'block';
+      startListening();
+    } else {
+      document.getElementById('err').textContent = 'Wrong passkey. Try again.';
+    }
+  }
+
+  function startListening() {
+    const q = query(messagesCol, orderBy("time", "desc"));
+    onSnapshot(q, (snapshot) => {
+      const board = document.getElementById('board');
+      const status = document.getElementById('status');
+      board.innerHTML = '';
+      if (snapshot.empty) {
+        status.textContent = 'No messages yet. Be the first to write something!';
+        return;
+      }
+      status.textContent = '';
+      snapshot.forEach(doc => {
+        const m = doc.data();
+        const div = document.createElement('div');
+        div.className = 'msg';
+        const timeStr = m.time ? new Date(m.time.toMillis()).toLocaleString() : '...';
+        div.innerHTML = `<div class="meta">${escHtml(m.author)} — ${timeStr}</div><div class="text">${escHtml(m.text)}</div>`;
+        board.appendChild(div);
+      });
+    });
+  }
+
+  window.postMsg = async function() {
+    const author = document.getElementById('author').value;
+    const text = document.getElementById('msgtext').value.trim();
+    if (!text) { alert('Message cannot be empty!'); return; }
+    await addDoc(messagesCol, { author, text, time: serverTimestamp() });
+    document.getElementById('msgtext').value = '';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+
 </body>
 </html>
