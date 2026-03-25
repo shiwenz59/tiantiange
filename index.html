@@ -45,9 +45,23 @@
       margin-bottom: 10px;
       background: #fffff8;
       font-size: 14px;
+      position: relative;
     }
     .msg .meta { font-size: 12px; color: #666; margin-bottom: 4px; }
     .msg .text { white-space: pre-wrap; }
+    .msg .del-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 11px;
+      color: #999;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: Times New Roman, serif;
+      padding: 0;
+    }
+    .msg .del-btn:hover { color: red; }
     #status { font-size: 13px; color: #888; font-style: italic; }
   </style>
 </head>
@@ -92,7 +106,7 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, serverTimestamp }
+  import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -107,8 +121,6 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
   const messagesCol = collection(db, "messages");
-
-
 
   const PASS_HASH = 'f1e553162dc9ae7bbdae6171672d402c97b204a25a85da7eed3581751b9885a1';
 
@@ -140,12 +152,16 @@
         return;
       }
       status.textContent = '';
-      snapshot.forEach(doc => {
-        const m = doc.data();
+      snapshot.forEach(docSnap => {
+        const m = docSnap.data();
         const div = document.createElement('div');
         div.className = 'msg';
         const timeStr = m.time ? new Date(m.time.toMillis()).toLocaleString() : '...';
-        div.innerHTML = `<div class="meta">${escHtml(m.author)} — ${timeStr}</div><div class="text">${escHtml(m.text)}</div>`;
+        div.innerHTML = `
+          <div class="meta">${escHtml(m.author)} — ${timeStr}</div>
+          <div class="text">${escHtml(m.text)}</div>
+          <button class="del-btn" onclick="deleteMsg('${docSnap.id}')">delete</button>
+        `;
         board.appendChild(div);
       });
     });
@@ -157,6 +173,11 @@
     if (!text) { alert('Message cannot be empty!'); return; }
     await addDoc(messagesCol, { author, text, time: serverTimestamp() });
     document.getElementById('msgtext').value = '';
+  }
+
+  window.deleteMsg = async function(id) {
+    if (!confirm('Delete this message?')) return;
+    await deleteDoc(doc(db, "messages", id));
   }
 
   function escHtml(s) {
